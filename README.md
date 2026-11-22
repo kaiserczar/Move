@@ -16,6 +16,12 @@ Webcam access requires a secure context, so the page must be served from `localh
 
 The pose model (about 5–30 MB depending on quality) and the MediaPipe runtime are fetched from public CDNs on first load, so the first run needs an internet connection.
 
+## Phones and tablets
+
+On screens narrower than 900px the stage fills the screen and settings open in a drawer from the **Customize** button (close it with ×, by tapping outside it, or with Esc). A phone held upright uses a portrait camera stream, and the stream switches when you rotate.
+
+A phone can't open this computer's `localhost`, and browsers block the camera on plain `http://` network addresses. To use a phone, serve the site over https, for example with GitHub Pages or a tunnel such as `cloudflared` or `ngrok`. Phones are much slower than desktops: start with the Lite model, and turn off hand tracking or background removal if the frame rate drops.
+
 ## Using it
 
 - Stand far enough back that your whole body, head to feet, is in frame. Four people standing side by side need a wide room and a landscape camera.

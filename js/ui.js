@@ -110,6 +110,23 @@ export function initUI({ onDisplayChange }) {
   });
   syncDependents();
 
+  // Mobile drawer (the toggle and close buttons only show on narrow screens).
+  const panel = document.getElementById('panel');
+  const menuBtn = document.getElementById('menu-btn');
+  const menuClose = document.getElementById('menu-close');
+  const backdrop = document.getElementById('backdrop');
+  function setMenu(open) {
+    panel.classList.toggle('open', open);
+    backdrop.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', String(open));
+    if (open) menuClose.focus({ preventScroll: true });
+    else if (panel.contains(document.activeElement)) menuBtn.focus({ preventScroll: true });
+  }
+  menuBtn.addEventListener('click', () => setMenu(true));
+  menuClose.addEventListener('click', () => setMenu(false));
+  backdrop.addEventListener('click', () => setMenu(false));
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
   // Keys 1-4 switch which player you're editing.
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLSelectElement || e.metaKey || e.ctrlKey || e.altKey) return;

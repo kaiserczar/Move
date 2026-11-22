@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Move — Avatar Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23151926'/%3E%3Ccircle cx='16' cy='8' r='4' fill='%23ff5a6e'/%3E%3Cpath d='M16 12v9M8 13l8 3 8-3M16 21l-5 7M16 21l5 7' stroke='%23ff5a6e' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#0d0f17" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -22,18 +24,26 @@
 
       <div class="hint" id="hint" hidden>Step back until your whole body, head to feet, is in view</div>
       <div class="hud"><span id="fps">– fps</span><span id="count">0 people</span></div>
+      <button id="menu-btn" class="menu-btn" aria-controls="panel" aria-expanded="false">
+        <span aria-hidden="true">☰</span> Customize
+      </button>
     </main>
 
-    <aside class="panel">
+    <div class="backdrop" id="backdrop"></div>
+
+    <aside class="panel" id="panel" aria-label="Settings">
       <header class="brand">
-        <h1>Move</h1>
-        <p>Avatar Studio</p>
+        <div>
+          <h1>Move</h1>
+          <p>Avatar Studio</p>
+        </div>
+        <button id="menu-close" class="menu-close" aria-label="Close menu">×</button>
       </header>
 
       <section>
         <h2>Players</h2>
         <div class="players" id="players"></div>
-        <p class="note">Players are numbered left to right as they enter. Click an avatar on screen or press 1–4 to edit it.</p>
+        <p class="note">Players are numbered left to right as they enter. Tap or click an avatar on screen (or press 1–4) to edit it.</p>
       </section>
 
       <section>

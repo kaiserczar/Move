@@ -85,13 +85,24 @@ function showModelError(err) {
   setOverlay('Could not load the pose model. It downloads from a CDN on first run, so check your internet connection and reload.', { busy: false });
 }
 
+// Phones held upright get a portrait stream so the camera fills the screen; re-request on rotation.
+const portraitQuery = matchMedia('(orientation: portrait) and (pointer: coarse)');
+portraitQuery.addEventListener('change', () => {
+  if (video.srcObject) startCamera().catch((err) => console.warn('Camera restart failed:', err));
+});
+
 async function startCamera() {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Camera API unavailable. Open this page from http://localhost (or https), not as a file.');
   }
   video.srcObject?.getTracks().forEach((t) => t.stop());
+  const portrait = portraitQuery.matches;
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+    video: {
+      width: { ideal: portrait ? 720 : 1280 },
+      height: { ideal: portrait ? 1280 : 720 },
+      facingMode: 'user',
+    },
     audio: false,
   });
   video.srcObject = stream;
@@ -143,6 +154,14 @@ function toDisplay(landmarks, W, H, mirror) {
 function loop() {
   requestAnimationFrame(loop);
   const now = performance.now();
+
+  // Phones can switch the stream between portrait and landscape on rotation.
+  if (video.videoWidth && (video.videoWidth !== canvas.width || video.videoHeight !== canvas.height)) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    tracker.reset();
+    handTracker.reset();
+  }
   const W = canvas.width;
   const H = canvas.height;
 

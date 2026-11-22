@@ -135,6 +135,12 @@ button, select, input { font: inherit; color: inherit; }
   gap: 24px;
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 .brand h1 {
   margin: 0;
   font-size: 26px;
@@ -288,10 +294,99 @@ button:focus-visible, select:focus-visible, input:focus-visible {
   outline-offset: 2px;
 }
 
-/* ---------- narrow screens ---------- */
+/* ---------- narrow screens: full-screen stage, settings in a slide-in drawer ---------- */
+
+.menu-btn, .menu-close, .backdrop { display: none; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; height: auto; }
-  .stage { height: 60vh; }
-  .panel { border-left: 0; border-top: 1px solid var(--line); padding: 16px; }
+  .app { grid-template-columns: 1fr; height: 100vh; height: 100dvh; }
+
+  .menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: absolute;
+    z-index: 5;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(13, 15, 23, 0.85);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .menu-close {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .panel {
+    position: fixed;
+    z-index: 20;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(400px, 92vw);
+    /* no top padding: the sticky header supplies it, so it can sit flush at the top */
+    padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 16px;
+    overscroll-behavior: contain;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+  /* Keep the title and close button reachable while the drawer scrolls. */
+  .brand {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-right))) 0 -16px;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .panel.open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.25s ease;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .hud {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+  }
+  .hint {
+    width: max-content;
+    white-space: normal;
+    text-align: center;
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .panel.open, .backdrop { transition: none; }
 }
