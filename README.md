@@ -30,6 +30,7 @@ A phone can't open this computer's `localhost`, and browsers block the camera on
 - Display toggles: camera feed, background removal, avatar, skeleton, hand tracking, elbow and knee angle readouts, mirror mode.
 - Hands: the avatar's hands copy your real hand shape. In skeleton view a hollow dashed ring means open and a filled disc means a fist; the player tabs show ✋ / ✊ for each hand. Hands are hardest to read when far away, small in frame, moving fast or in dim light.
 - Remove background: shows the real people cut out of the camera image over a chosen background (stage, blurred room, solid dark, or green screen for streaming/recording software). Turn Avatar off to see just the people; skeletons, hand markers and tags still draw on top. Edges are softest with even lighting and a background that contrasts with clothing.
+- Jump and duck: stand still for a moment so your standing height is learned, then jump or duck (squat, crouch or bend forward) and a big **JUMP!** or **DUCK!** appears over your head. Your hips need to be in view; detection re-learns your standing height if you move nearer or farther from the camera.
 - Tracking model: Lite is fastest; Full and Heavy track better, especially with several people, but need a faster GPU.
 
 ## Project layout
@@ -44,6 +45,7 @@ js/core/
   vision.js           loads MediaPipe pose, hand and person-segmentation models (GPU, falls back to CPU)
   hands.js            per-wrist crop hand tracking, open/closed detection
   cutout.js           background removal (person mask smoothing and compositing)
+  motion.js           jump and duck detection against a learned standing baseline
   tracker.js          stable P1–P4 identities across frames, plus landmark smoothing
   landmarks.js        landmark names, visibility threshold, elbow/knee angle helper
   body.js             joints -> body geometry (head, torso, limbs, scale)
@@ -62,8 +64,11 @@ Each frame, `main.js` has a `players` array:
 
 ```js
 { id: 0..3, joints: { nose, leftShoulder, leftElbow, leftWrist, leftHip, leftKnee, leftAnkle, ... }, body,
-  hands: { left, right } }   // each null, or { state: 'open' | 'closed', openness: 0..1, points: [21 x {x, y}] }
+  hands: { left, right },   // each null, or { state: 'open' | 'closed', openness: 0..1, points: [21 x {x, y}] }
+  motion }                  // { state: 'stand' | 'jump' | 'duck', since, ready, rise, drop, vy }
 ```
+
+`motion` comes from `MotionDetector` in `js/core/motion.js`. `rise` (hips above standing) and `drop` (shoulders below standing) are in torso lengths, and `vy` is hip speed in torso lengths per second (positive is up). `ready` is false until the player's standing height has been learned. `motion.update(players, now)` also returns the frame's events, `[{ type: 'jump' | 'land' | 'duck' | 'stand', playerId, time }]`, for games that react to the moment a move starts. Thresholds can be tuned with `new MotionDetector({ jumpEnter, duckEnter, ... })`.
 
 Each joint is `{ x, y, v }`: pixel coordinates on the canvas (already mirrored if mirror mode is on) and visibility from 0 to 1. Use `isVisible(joints, name)` and `jointAngles(joints)` from `js/core/landmarks.js`; for example, a squat is both knee angles below about 110°.
 

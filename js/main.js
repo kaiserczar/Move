@@ -2,6 +2,7 @@ import { createHandDetector, createPersonSegmenter, createPoseDetector } from '.
 import { PlayerTracker } from './core/tracker.js';
 import { HandTracker } from './core/hands.js';
 import { PersonCutout } from './core/cutout.js';
+import { MotionDetector } from './core/motion.js';
 import { isVisible } from './core/landmarks.js';
 import { buildBody } from './core/body.js';
 import { drawSkeleton } from './core/skeleton.js';
@@ -25,6 +26,8 @@ const tracker = new PlayerTracker(MAX_PLAYERS);
 const handTracker = new HandTracker();
 let handsLoading = null;
 const cutout = new PersonCutout();
+const motion = new MotionDetector();
+let popups = []; // big "JUMP!" / "DUCK!" words: { playerId, text, start, hold }
 let cutoutLoading = null;
 let detector = null;
 let loadToken = 0;
@@ -36,7 +39,7 @@ let fpsWindowStart = performance.now();
 
 const ui = initUI({
   onDisplayChange(key) {
-    if (key === 'mirror') { tracker.reset(); handTracker.reset(); }
+    if (key === 'mirror') { tracker.reset(); handTracker.reset(); motion.reset(); }
     if (key === 'model') loadModel().catch(showModelError);
     if (key === 'hands' && state.display.hands) loadHands();
     if (key === 'cutout' && state.display.cutout) loadCutout();
@@ -121,6 +124,7 @@ async function loadModel() {
   if (token !== loadToken) { d.close(); return; }
   detector = d;
   tracker.reset();
+  motion.reset();
   emptySince = performance.now();
   setOverlay(null);
 }
@@ -161,6 +165,7 @@ function loop() {
     canvas.height = video.videoHeight;
     tracker.reset();
     handTracker.reset();
+    motion.reset();
   }
   const W = canvas.width;
   const H = canvas.height;
@@ -175,6 +180,14 @@ function loop() {
   }
 
   players = tracker.players(now).map((p) => ({ ...p, body: buildBody(p.joints) }));
+  if (newFrame) {
+    for (const e of motion.update(players, now)) {
+      if (e.type === 'jump' || e.type === 'duck') popups = popups.filter((q) => q.playerId !== e.playerId);
+      if (e.type === 'jump') popups.push({ playerId: e.playerId, text: 'JUMP!', start: now, hold: 'jump' });
+      if (e.type === 'duck') popups.push({ playerId: e.playerId, text: 'DUCK!', start: now, hold: 'duck' });
+    }
+  }
+  for (const p of players) p.motion ??= motion.get(p.id);
 
   const handsOn = state.display.hands;
   if (handsOn && newFrame) {
@@ -247,6 +260,46 @@ function render(W, H, now) {
     if (d.skeleton) drawSkeleton(ctx, p, color, { angles: d.angles });
     if (p.body) drawTag(p, color, p.id === state.selected);
   }
+  drawPopups(now);
+}
+
+const POPUP_MS = 900; // how long a word lingers after the move ends
+
+function drawPopups(now) {
+  popups = popups.filter((pop) => {
+    const p = players.find((q) => q.id === pop.playerId);
+    if (!p?.body) return now - pop.start < POPUP_MS;
+    // Stay solid while the move is held, then fade out.
+    if (p.motion?.state === pop.hold && p.motion.since <= pop.start) pop.end = now;
+    const age = now - (pop.end ?? pop.start);
+    if (age > POPUP_MS) return false;
+    drawPopup(p, pop, now, 1 - Math.max(0, age - POPUP_MS * 0.4) / (POPUP_MS * 0.6));
+    return true;
+  });
+}
+
+function drawPopup(p, pop, now, alpha) {
+  const b = p.body;
+  const fs = Math.max(40, b.s * 0.75);
+  const t = Math.min(1, (now - pop.start) / 180);
+  const pulse = 1 + 0.35 * (1 - t) * (1 - t); // pops in big, settles
+  const x = Math.min(Math.max(b.head.c.x, fs * 1.6), canvas.width - fs * 1.6);
+  const y = Math.max(fs * 0.7, b.head.c.y - b.head.r * 1.75 - fs * 1.1);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, alpha);
+  ctx.translate(x, y);
+  ctx.scale(pulse, pulse);
+  ctx.rotate(pop.text === 'JUMP!' ? -0.08 : 0.08);
+  ctx.font = `900 ${fs}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = fs * 0.16;
+  ctx.strokeStyle = '#0d0f17';
+  ctx.strokeText(pop.text, 0, 0);
+  ctx.fillStyle = PLAYER_COLORS[p.id];
+  ctx.fillText(pop.text, 0, 0);
+  ctx.restore();
 }
 
 function drawStage(W, H) {
