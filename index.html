@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Move — Avatar Studio</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <main class="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="canvas" width="1280" height="720" aria-label="Camera view with tracked avatars"></canvas>
+
+      <div class="overlay" id="overlay">
+        <div class="overlay-card">
+          <div class="spinner" id="spinner"></div>
+          <p id="overlay-text">Starting…</p>
+          <button id="start-btn" class="btn primary" hidden>Try again</button>
+        </div>
+      </div>
+
+      <div class="hint" id="hint" hidden>Step back until your whole body, head to feet, is in view</div>
+      <div class="hud"><span id="fps">– fps</span><span id="count">0 people</span></div>
+    </main>
+
+    <aside class="panel">
+      <header class="brand">
+        <h1>Move</h1>
+        <p>Avatar Studio</p>
+      </header>
+
+      <section>
+        <h2>Players</h2>
+        <div class="players" id="players"></div>
+        <p class="note">Players are numbered left to right as they enter. Click an avatar on screen or press 1–4 to edit it.</p>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Customize <span id="editing" class="editing">P1</span></h2>
+          <button id="randomize" class="btn">Randomize</button>
+        </div>
+        <div id="parts" class="parts"></div>
+      </section>
+
+      <section>
+        <h2>Display</h2>
+        <div class="toggles">
+          <label><input type="checkbox" data-display="camera" /> Camera</label>
+          <label><input type="checkbox" data-display="avatar" /> Avatar</label>
+          <label><input type="checkbox" data-display="skeleton" /> Skeleton</label>
+          <label><input type="checkbox" data-display="hands" /> Hand tracking</label>
+          <label><input type="checkbox" data-display="angles" /> Elbow and knee angles</label>
+          <label><input type="checkbox" data-display="mirror" /> Mirror</label>
+        </div>
+        <label class="select-row">Tracking model
+          <select id="model">
+            <option value="lite">Lite (fastest)</option>
+            <option value="full">Full (balanced)</option>
+            <option value="heavy">Heavy (most accurate)</option>
+          </select>
+        </label>
+      </section>
+    </aside>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
