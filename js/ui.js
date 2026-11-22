@@ -11,7 +11,7 @@ const CATEGORIES = [
 
 const rand = (n) => Math.floor(Math.random() * n);
 
-export function initUI({ onMirrorChange, onModelChange, onHandsChange }) {
+export function initUI({ onDisplayChange }) {
   const playersEl = document.getElementById('players');
   const partsEl = document.getElementById('parts');
 
@@ -93,24 +93,22 @@ export function initUI({ onMirrorChange, onModelChange, onHandsChange }) {
     changed();
   });
 
+  // Checkboxes and selects tagged data-display="<key>" bind to state.display[key].
+  const backgroundRow = document.getElementById('background-row');
+  const syncDependents = () => { backgroundRow.hidden = !state.display.cutout; };
   document.querySelectorAll('[data-display]').forEach((input) => {
     const key = input.dataset.display;
-    input.checked = !!state.display[key];
+    const isBox = input.type === 'checkbox';
+    if (isBox) input.checked = !!state.display[key];
+    else input.value = state.display[key];
     input.addEventListener('change', () => {
-      state.display[key] = input.checked;
+      state.display[key] = isBox ? input.checked : input.value;
       save();
-      if (key === 'mirror') onMirrorChange?.();
-      if (key === 'hands') onHandsChange?.();
+      syncDependents();
+      onDisplayChange?.(key);
     });
   });
-
-  const model = document.getElementById('model');
-  model.value = state.display.model;
-  model.addEventListener('change', () => {
-    state.display.model = model.value;
-    save();
-    onModelChange?.();
-  });
+  syncDependents();
 
   // Keys 1-4 switch which player you're editing.
   window.addEventListener('keydown', (e) => {

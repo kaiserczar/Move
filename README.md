@@ -21,8 +21,9 @@ The pose model (about 5–30 MB depending on quality) and the MediaPipe runtime 
 - Stand far enough back that your whole body, head to feet, is in frame. Four people standing side by side need a wide room and a landscape camera.
 - Players are numbered P1–P4 left to right as they enter the frame, and keep their number while they move around.
 - Pick the player to edit with the tabs, by pressing keys 1–4, or by clicking their avatar on screen. Then choose a head, top, bottom and skin tone.
-- Display toggles: camera feed, avatar, skeleton, hand tracking, elbow and knee angle readouts, mirror mode.
+- Display toggles: camera feed, background removal, avatar, skeleton, hand tracking, elbow and knee angle readouts, mirror mode.
 - Hands: the avatar's hands copy your real hand shape. In skeleton view a hollow dashed ring means open and a filled disc means a fist; the player tabs show ✋ / ✊ for each hand. Hands are hardest to read when far away, small in frame, moving fast or in dim light.
+- Remove background: shows the real people cut out of the camera image over a chosen background (stage, blurred room, solid dark, or green screen for streaming/recording software). Turn Avatar off to see just the people; skeletons, hand markers and tags still draw on top. Edges are softest with even lighting and a background that contrasts with clothing.
 - Tracking model: Lite is fastest; Full and Heavy track better, especially with several people, but need a faster GPU.
 
 ## Project layout
@@ -34,8 +35,9 @@ js/main.js            camera, frame loop, rendering, canvas click-to-select
 js/state.js           player configs and display settings (saved to localStorage)
 js/ui.js              customization panel
 js/core/
-  vision.js           loads MediaPipe Pose and Hand Landmarkers (GPU, falls back to CPU)
+  vision.js           loads MediaPipe pose, hand and person-segmentation models (GPU, falls back to CPU)
   hands.js            per-wrist crop hand tracking, open/closed detection
+  cutout.js           background removal (person mask smoothing and compositing)
   tracker.js          stable P1–P4 identities across frames, plus landmark smoothing
   landmarks.js        landmark names, visibility threshold, elbow/knee angle helper
   body.js             joints -> body geometry (head, torso, limbs, scale)

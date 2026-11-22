@@ -10,6 +10,8 @@ export const POSE_MODELS = {
   heavy: `${MODEL_BASE}/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task`,
 };
 const HAND_MODEL = `${MODEL_BASE}/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`;
+// Landscape variant: 256x144 input, matches 16:9 webcams.
+const SEGMENT_MODEL = `${MODEL_BASE}/image_segmenter/selfie_segmenter_landscape/float16/1/selfie_segmenter_landscape.tflite`;
 
 let visionPromise = null;
 let filesetPromise = null;
@@ -59,5 +61,19 @@ export async function createHandDetector() {
     numHands: 2,
     minHandDetectionConfidence: 0.4,
     minHandPresenceConfidence: 0.4,
+  }));
+}
+
+/**
+ * ImageSegmenter (selfie model) in VIDEO mode: one low-res "is this pixel a person" confidence
+ * mask covering everyone in frame. Used for the background-removal view.
+ */
+export async function createPersonSegmenter() {
+  const { vision, fileset } = await loadVision();
+  return createWithFallback(vision.ImageSegmenter, fileset, (delegate) => ({
+    baseOptions: { modelAssetPath: SEGMENT_MODEL, delegate },
+    runningMode: 'VIDEO',
+    outputConfidenceMasks: true,
+    outputCategoryMask: false,
   }));
 }

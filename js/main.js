@@ -1,6 +1,7 @@
-import { createHandDetector, createPoseDetector } from './core/vision.js';
+import { createHandDetector, createPersonSegmenter, createPoseDetector } from './core/vision.js';
 import { PlayerTracker } from './core/tracker.js';
 import { HandTracker } from './core/hands.js';
+import { PersonCutout } from './core/cutout.js';
 import { isVisible } from './core/landmarks.js';
 import { buildBody } from './core/body.js';
 import { drawSkeleton } from './core/skeleton.js';
@@ -23,6 +24,8 @@ const countEl = document.getElementById('count');
 const tracker = new PlayerTracker(MAX_PLAYERS);
 const handTracker = new HandTracker();
 let handsLoading = null;
+const cutout = new PersonCutout();
+let cutoutLoading = null;
 let detector = null;
 let loadToken = 0;
 let lastVideoTime = -1;
@@ -32,10 +35,22 @@ let detections = 0;
 let fpsWindowStart = performance.now();
 
 const ui = initUI({
-  onMirrorChange: () => { tracker.reset(); handTracker.reset(); },
-  onModelChange: () => loadModel().catch(showModelError),
-  onHandsChange: () => { if (state.display.hands) loadHands(); },
+  onDisplayChange(key) {
+    if (key === 'mirror') { tracker.reset(); handTracker.reset(); }
+    if (key === 'model') loadModel().catch(showModelError);
+    if (key === 'hands' && state.display.hands) loadHands();
+    if (key === 'cutout' && state.display.cutout) loadCutout();
+  },
 });
+
+/** Background-removal model also loads lazily, only once the option is turned on. */
+function loadCutout() {
+  if (cutout.task || cutoutLoading) return;
+  cutoutLoading = createPersonSegmenter()
+    .then((task) => cutout.setTask(task))
+    .catch((err) => console.error('Background removal unavailable:', err))
+    .finally(() => { cutoutLoading = null; });
+}
 
 /** Hand model loads lazily in the background; pose tracking works without it. */
 function loadHands() {
@@ -110,6 +125,7 @@ async function boot() {
   }
   try { await loadModel(); } catch (err) { showModelError(err); return; }
   if (state.display.hands) loadHands();
+  if (state.display.cutout) loadCutout();
 }
 
 startBtn.addEventListener('click', boot);
@@ -153,20 +169,55 @@ function loop() {
     p.hands = { left: hand('left'), right: hand('right') };
   }
 
-  render(W, H);
+  if (newFrame && state.display.camera && state.display.cutout) cutout.update(video, now);
+
+  render(W, H, now);
   updateHud(now);
 }
 
-function render(W, H) {
+function drawVideo(W, H) {
+  ctx.save();
+  if (state.display.mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(video, 0, 0, W, H);
+  ctx.restore();
+}
+
+function drawBackground(W, H) {
+  switch (state.display.background) {
+    case 'blur':
+      ctx.save();
+      ctx.filter = `blur(${Math.round(W / 70)}px)`;
+      drawVideo(W, H);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(10,12,22,0.3)';
+      ctx.fillRect(0, 0, W, H);
+      break;
+    case 'dark':
+      ctx.fillStyle = '#12152a';
+      ctx.fillRect(0, 0, W, H);
+      break;
+    case 'green':
+      ctx.fillStyle = '#00b140';
+      ctx.fillRect(0, 0, W, H);
+      break;
+    default:
+      drawStage(W, H);
+  }
+}
+
+function render(W, H, now) {
   const d = state.display;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   if (d.camera && video.readyState >= 2) {
-    ctx.save();
-    if (d.mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(video, 0, 0, W, H);
-    ctx.restore();
-    if (d.avatar) { ctx.fillStyle = 'rgba(10,12,22,0.35)'; ctx.fillRect(0, 0, W, H); }
+    if (d.cutout && cutout.ready(now)) {
+      drawBackground(W, H);
+      cutout.drawPeople(ctx, video, W, H, d.mirror);
+    } else {
+      // Full camera frame (also shown while the background-removal model is still loading).
+      drawVideo(W, H);
+      if (d.avatar) { ctx.fillStyle = 'rgba(10,12,22,0.35)'; ctx.fillRect(0, 0, W, H); }
+    }
   } else {
     drawStage(W, H);
   }

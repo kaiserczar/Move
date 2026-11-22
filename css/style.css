@@ -275,6 +275,7 @@ h3 { margin: 0; font-size: 13px; font-weight: 600; }
   gap: 12px;
   margin-top: 14px;
 }
+.select-row[hidden] { display: none; }
 .select-row select {
   background: var(--panel-2);
   border: 1px solid var(--line);

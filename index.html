@@ -48,14 +48,23 @@
         <h2>Display</h2>
         <div class="toggles">
           <label><input type="checkbox" data-display="camera" /> Camera</label>
+          <label><input type="checkbox" data-display="cutout" /> Remove background</label>
           <label><input type="checkbox" data-display="avatar" /> Avatar</label>
           <label><input type="checkbox" data-display="skeleton" /> Skeleton</label>
           <label><input type="checkbox" data-display="hands" /> Hand tracking</label>
           <label><input type="checkbox" data-display="angles" /> Elbow and knee angles</label>
           <label><input type="checkbox" data-display="mirror" /> Mirror</label>
         </div>
+        <label class="select-row" id="background-row">Background
+          <select data-display="background">
+            <option value="stage">Stage</option>
+            <option value="blur">Blurred room</option>
+            <option value="dark">Solid dark</option>
+            <option value="green">Green screen</option>
+          </select>
+        </label>
         <label class="select-row">Tracking model
-          <select id="model">
+          <select data-display="model">
             <option value="lite">Lite (fastest)</option>
             <option value="full">Full (balanced)</option>
             <option value="heavy">Heavy (most accurate)</option>

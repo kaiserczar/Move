@@ -11,7 +11,10 @@ const DEFAULTS = {
     { head: 2, top: 2, bottom: 2, skin: 1 },
     { head: 3, top: 4, bottom: 3, skin: 3 },
   ],
-  display: { camera: true, skeleton: true, avatar: true, hands: true, angles: false, mirror: true, model: 'lite' },
+  display: {
+    camera: true, cutout: false, background: 'stage',
+    skeleton: true, avatar: true, hands: true, angles: false, mirror: true, model: 'lite',
+  },
 };
 
 function load() {
