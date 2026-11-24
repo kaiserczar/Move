@@ -27,7 +27,7 @@ const handTracker = new HandTracker();
 let handsLoading = null;
 const cutout = new PersonCutout();
 const motion = new MotionDetector();
-let popups = []; // big "JUMP!" / "DUCK!" words: { playerId, text, start, hold }
+let popups = []; // big "JUMP!" / "DUCK!" / step words: { playerId, kind, text, start, hold?, dir? }
 let cutoutLoading = null;
 let detector = null;
 let loadToken = 0;
@@ -182,9 +182,14 @@ function loop() {
   players = tracker.players(now).map((p) => ({ ...p, body: buildBody(p.joints) }));
   if (newFrame) {
     for (const e of motion.update(players, now)) {
-      if (e.type === 'jump' || e.type === 'duck') popups = popups.filter((q) => q.playerId !== e.playerId);
-      if (e.type === 'jump') popups.push({ playerId: e.playerId, text: 'JUMP!', start: now, hold: 'jump' });
-      if (e.type === 'duck') popups.push({ playerId: e.playerId, text: 'DUCK!', start: now, hold: 'duck' });
+      const pop = e.type === 'jump' ? { kind: 'move', text: 'JUMP!', hold: 'jump' }
+        : e.type === 'duck' ? { kind: 'move', text: 'DUCK!', hold: 'duck' }
+        : e.type === 'step' ? { kind: 'step', text: e.dir === 'left' ? '◀ LEFT' : 'RIGHT ▶', dir: e.dir }
+        : null;
+      if (!pop) continue;
+      // One word of each kind per player: a new one replaces the old.
+      popups = popups.filter((q) => q.playerId !== e.playerId || q.kind !== pop.kind);
+      popups.push({ ...pop, playerId: e.playerId, start: now });
     }
   }
   for (const p of players) p.motion ??= motion.get(p.id);
@@ -270,7 +275,7 @@ function drawPopups(now) {
     const p = players.find((q) => q.id === pop.playerId);
     if (!p?.body) return now - pop.start < POPUP_MS;
     // Stay solid while the move is held, then fade out.
-    if (p.motion?.state === pop.hold && p.motion.since <= pop.start) pop.end = now;
+    if (pop.hold && p.motion?.state === pop.hold && p.motion.since <= pop.start) pop.end = now;
     const age = now - (pop.end ?? pop.start);
     if (age > POPUP_MS) return false;
     drawPopup(p, pop, now, 1 - Math.max(0, age - POPUP_MS * 0.4) / (POPUP_MS * 0.6));
@@ -280,16 +285,22 @@ function drawPopups(now) {
 
 function drawPopup(p, pop, now, alpha) {
   const b = p.body;
-  const fs = Math.max(40, b.s * 0.75);
+  const fs0 = Math.max(40, b.s * 0.75);
   const t = Math.min(1, (now - pop.start) / 180);
   const pulse = 1 + 0.35 * (1 - t) * (1 - t); // pops in big, settles
-  const x = Math.min(Math.max(b.head.c.x, fs * 1.6), canvas.width - fs * 1.6);
-  const y = Math.max(fs * 0.7, b.head.c.y - b.head.r * 1.75 - fs * 1.1);
+  const fs = pop.kind === 'step' ? fs0 * 0.8 : fs0;
+  const halfW = fs * 1.9;
+  // Jump/duck words sit above the head; step words sit beside the body, on the side stepped to.
+  const side = pop.dir === 'left' ? -1 : 1;
+  const x0 = pop.kind === 'step' ? b.sMid.x + side * (b.s * 0.9 + halfW) : b.head.c.x;
+  const y0 = pop.kind === 'step' ? b.sMid.y : b.head.c.y - b.head.r * 1.75 - fs * 1.1;
+  const x = Math.min(Math.max(x0, halfW), canvas.width - halfW);
+  const y = Math.min(Math.max(y0, fs * 0.7), canvas.height - fs * 0.7);
   ctx.save();
   ctx.globalAlpha = Math.max(0, alpha);
   ctx.translate(x, y);
   ctx.scale(pulse, pulse);
-  ctx.rotate(pop.text === 'JUMP!' ? -0.08 : 0.08);
+  ctx.rotate(pop.kind === 'step' ? side * 0.06 : pop.hold === 'jump' ? -0.08 : 0.08);
   ctx.font = `900 ${fs}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

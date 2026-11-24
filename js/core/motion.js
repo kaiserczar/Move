@@ -1,5 +1,5 @@
 /**
- * Jump and duck detection.
+ * Jump, duck and left/right step detection.
  *
  * Each player gets a standing baseline (shoulder, hip and ankle heights plus torso length),
  * learned while they stand still. Movement is measured against that baseline in units of the
@@ -7,19 +7,25 @@
  *
  *   jump: hips AND shoulders rise well above standing height (and ankles too, when visible).
  *   duck: shoulders drop well below standing height (squat, crouch or bend forward).
+ *   step: hips move sideways by a set distance from where the player last settled. Directions
+ *         are on screen, so with mirror mode on 'left' is also the player's own left.
  *
  * Hysteresis (separate enter/exit thresholds) keeps states from flickering.
  */
 
 const DEFAULTS = {
-  jumpEnter: 0.22,   // hip rise to call it a jump, in torso lengths
-  jumpExit: 0.1,     // hip rise below which the player has landed
+  jumpEnter: 0.12,   // hip rise to call it a jump, in torso lengths
+  jumpQuick: 0.07,   // ...or this much rise while moving up fast (catches the take-off on slow frame rates)
+  jumpSpeed: 1.2,    // upward hip speed for jumpQuick, in torso lengths per second
+  jumpExit: 0.05,    // hip rise below which the player has landed
   duckEnter: 0.45,   // shoulder drop to call it a duck
   duckExit: 0.28,    // shoulder drop below which the player is standing again
   calibrateMs: 500,  // steady standing needed before detection starts
   baselineMs: 700,   // time constant for baseline drift while standing
   maxJumpMs: 1500,   // nobody stays airborne this long: re-calibrate instead
   maxDuckMs: 8000,   // a very long "duck" is more likely a new position: re-calibrate
+  stepDist: 0.35,    // sideways hip travel that counts as a step, in torso lengths
+  stepAnchorMs: 2000, // the step anchor slowly follows the hips, so gentle sway never adds up to a step
   forgetMs: 1000,    // a player unseen this long starts fresh (the slot may be someone new)
 };
 
@@ -35,6 +41,7 @@ function measure(body) {
   return {
     sh: body.sMid.y,
     hip: body.hMid.y,
+    x: body.hMid.x,
     ankle: ankles.every(Boolean) ? avgY(ankles) : null,
     torso: body.torsoLen,
   };
@@ -51,13 +58,14 @@ export class MotionDetector {
   }
 
   #fresh(now) {
-    return { state: 'stand', since: now, base: null, steadySince: now, lastSeen: now, lastT: now, rise: 0, drop: 0, vy: 0, prevHip: null };
+    return { state: 'stand', since: now, base: null, steadySince: now, lastSeen: now, lastT: now, rise: 0, drop: 0, vy: 0, prevHip: null, anchorX: null, shift: 0, lastStep: null };
   }
 
   /**
    * Call once per new pose frame with players that have `body` (from buildBody).
    * Sets `p.motion` on each player and returns this frame's events:
-   * [{ type: 'jump' | 'land' | 'duck' | 'stand', playerId, time }]
+   * [{ type: 'jump' | 'land' | 'duck' | 'stand' | 'step', playerId, time, dir? }]
+   * (`dir` is 'left' or 'right' on step events.)
    */
   update(players, now) {
     const o = this.opt;
@@ -73,7 +81,7 @@ export class MotionDetector {
       if (!cur) { p.motion = this.#view(m); continue; }
 
       // Hip velocity in torso lengths per second (+ = up), for games that want it.
-      if (m.prevHip != null && m.base) m.vy = ((m.prevHip - cur.hip) / m.base.torso) * (1000 / dt);
+      if (m.prevHip != null && m.base) m.vy += (((m.prevHip - cur.hip) / m.base.torso) * (1000 / dt) - m.vy) * 0.6;
       m.prevHip = cur.hip;
 
       if (!m.base) { m.base = { ...cur }; m.steadySince = now; }
@@ -86,6 +94,20 @@ export class MotionDetector {
       const scaleShift = Math.abs(cur.torso / u - 1);
 
       const ready = now - m.steadySince >= o.calibrateMs;
+
+      // Steps: compare hip x with an anchor that trails behind slowly; re-anchor after each step.
+      if (m.anchorX == null) m.anchorX = cur.x;
+      m.shift = (cur.x - m.anchorX) / u;
+      if (Math.abs(m.shift) > o.stepDist) {
+        const dir = m.shift < 0 ? 'left' : 'right';
+        m.lastStep = { dir, time: now };
+        m.anchorX = cur.x;
+        m.shift = 0;
+        events.push({ type: 'step', dir, playerId: p.id, time: now });
+      } else {
+        m.anchorX += (cur.x - m.anchorX) * (1 - Math.exp(-dt / o.stepAnchorMs));
+      }
+
       const set = (state) => {
         if (state === m.state) return;
         const type = state === 'stand' ? (m.state === 'jump' ? 'land' : 'stand') : state;
@@ -95,7 +117,9 @@ export class MotionDetector {
       };
 
       if (m.state === 'stand') {
-        const jumping = m.rise > o.jumpEnter && shRise > o.jumpEnter * 0.7 && (ankleRise == null || ankleRise > o.jumpEnter * 0.6);
+        // Shoulders must rise with the hips (rules out landmark jitter); feet must leave the floor if visible.
+        const hipUp = m.rise > o.jumpEnter || (m.rise > o.jumpQuick && m.vy > o.jumpSpeed);
+        const jumping = hipUp && shRise > m.rise * 0.6 && (ankleRise == null || ankleRise > o.jumpQuick * 0.6);
         if (ready && jumping) set('jump');
         else if (ready && m.drop > o.duckEnter) set('duck');
         else this.#learn(m, cur, now, dt, scaleShift);
@@ -152,6 +176,8 @@ export class MotionDetector {
       rise: m.rise,
       drop: m.drop,
       vy: m.vy,
+      shift: m.shift,
+      lastStep: m.lastStep,
     };
   }
 }
